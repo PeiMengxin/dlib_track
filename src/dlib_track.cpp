@@ -28,11 +28,15 @@ Point pt_end;
 int linear_max = 100;
 int linear_speed = 20;
 int angular_max = 20;
+int lost_number = 0;
+// serial::Serial serial_port("/dev/ttyUSB0", 9600, serial::Timeout::simpleTimeout(1000));
 serial::Serial serial_port;
 
 void sleep_ms(int ms)
 {
     usleep(1000*ms);
+    lost_number++;
+    ROS_INFO("lost:%d", lost_number);
 }
 
 void lostWarning()
@@ -136,6 +140,10 @@ int main(int argc, char** argv)
 
     serial_port.setPort("/dev/ttyUSB0");
     serial_port.setBaudrate(9600);
+    serial::Timeout timeout = serial::Timeout::simpleTimeout(1000);
+    serial_port.setTimeout(timeout);
+
+    serial_port.open();
     usleep(1000*1000);
 
     while(!serial_port.isOpen())
@@ -251,6 +259,7 @@ int main(int argc, char** argv)
         geometry_msgs::Twist msg_twist;
         msg_twist.linear.x = -1;
         msg_twist.linear.y = -1;
+        msg_twist.linear.z = wave_dis;
         msg_twist.angular.x = linear_max;
         msg_twist.angular.z = angular_max;
 
@@ -301,6 +310,7 @@ int main(int argc, char** argv)
                 {
                     start_track = true;
                     lost_target_flag = false;
+                    lost_number = 0;
                     tracker.start_track(img, getInitPosition(*pselect));
                 }
             }
@@ -313,7 +323,7 @@ int main(int argc, char** argv)
             sleep_ms(10);
         }
 
-        // ROS_INFO("%.1f %.1f %.1f",  msg_twist.linear.x,  msg_twist.linear.y,  msg_twist.linear.z);
+        ROS_INFO("%.1f %.1f %.1f",  msg_twist.linear.x,  msg_twist.linear.y,  msg_twist.linear.z);
         
         chatter_pub.publish(msg_twist);
 
