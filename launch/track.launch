@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="dlib_track" type="track_node" name="track_node" output="screen"/>
+    <node pkg="dlib_track" type="msg_transfer_node" name="msg_transfer_node" output="screen"/>
+
+</launch>
