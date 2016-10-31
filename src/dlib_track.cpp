@@ -29,6 +29,8 @@ int linear_max = 100;
 int linear_speed = 20;
 int angular_max = 20;
 int lost_number = 0;
+int flag_writing = 0;
+int flag_writevideo = 0;
 // serial::Serial serial_port("/dev/ttyUSB0", 9600, serial::Timeout::simpleTimeout(1000));
 serial::Serial serial_port;
 
@@ -129,6 +131,43 @@ cv::Point getCenter(cv::Rect r)
     return p;
 }
 
+int video_num = 0;
+std::ifstream video_num_read;
+std::ofstream video_num_write;
+std::string video_num_path(
+		"~/Videos/video_num.txt");
+
+void startWriteVideo(std::ifstream &video_num_read,
+		cv::VideoWriter &video_writer)
+{
+	video_num_read.open(video_num_path.c_str());
+	video_num_read >> video_num;
+	video_num_read.close();
+
+	cout << video_num << endl;
+
+	video_num_write.open(video_num_path.c_str());
+	video_num_write << (video_num + 1);
+	video_num_write.close();
+
+	if (video_writer.isOpened())
+	{
+		video_writer.release();
+	}
+
+	std::stringstream ss;
+	string video_name;
+
+	ss << video_num;
+	ss >> video_name;
+	video_name += ".avi";
+
+	video_writer.open(
+			"~/Videos/video" + video_name,
+			CV_FOURCC('D', 'I', 'V', 'X'), 30, Size(320, 240));
+
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "talker");
@@ -161,8 +200,10 @@ int main(int argc, char** argv)
     cv::namedWindow("bar");
     cv::createTrackbar("linear_max","bar",&linear_max,200);
     cv::createTrackbar("angular_max","bar",&angular_max,40);
+    cv::createTrackbar("writevideo", "bar", &flag_writevideo, 1);
    
     VideoCapture cap;
+    cv::VideoWriter video_writer;
     bool start_track = false;
 
     //cap.open("ir.avi");
@@ -320,6 +361,8 @@ int main(int argc, char** argv)
         if(lost_target_flag)
         {
             lostWarning();
+            putText(imgSrcCopy, "Warning:Target Lost!", Point(20, 20),
+	CV_FONT_HERSHEY_TRIPLEX, 0.6, CV_RGB(255, 0, 0), 1, 8);
             sleep_ms(10);
         }
 
@@ -328,6 +371,25 @@ int main(int argc, char** argv)
         chatter_pub.publish(msg_twist);
 
         imshow("tracker", imgSrcCopy);
+
+        if (flag_writing == 1)
+		{
+			video_writer << imgSrcCopy;
+			if (flag_writevideo == 0)
+			{
+				flag_writing = 0;
+				video_writer.release();
+			}
+		}
+		else
+		{
+			if (flag_writevideo == 1)
+			{
+				startWriteVideo(video_num_read, video_writer);
+				flag_writing = 1;
+			}
+		}
+
         char c = waitKey(10);
         if (c == 27)
         {
@@ -336,6 +398,10 @@ int main(int argc, char** argv)
 
     }
 
+   if (video_writer.isOpened())
+	{
+		video_writer.release();
+	}
     isTerminal = true;
 
     ultra_wave_distance_thread.join();
